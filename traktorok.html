@@ -1,0 +1,80 @@
+
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Traktorok Felhőben</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <script>
+        // A te egyedi adataid:
+        const firebaseConfig = {
+          apiKey: "AIzaSyB74XnNg_dWDBalyTPd1fAUOlQT_0rddaE",
+          authDomain: "karpati-rendszer.firebaseapp.com",
+          databaseURL: "https://karpati-rendszer-default-rtdb.europe-west1.firebasedatabase.app",
+          projectId: "karpati-rendszer",
+          storageBucket: "karpati-rendszer.firebasestorage.app",
+          messagingSenderId: "743687645148",
+          appId: "1:743687645148:web:458a63fb7b4a874f605119"
+        };
+
+        // Inicializálás (Figyelj, hogy ne legyen hiba, ha többször fut le)
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+    </script>
+
+    <style>
+        body { font-family: sans-serif; background: #f0f4f8; padding: 20px; text-align: center; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #3498db; color: white; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #eee; padding: 20px; border-radius: 10px; }
+        .add-btn { background: #2ecc71; color: white; width: 100%; padding: 10px; border: none; cursor: pointer; }
+        .back-btn { background: #ff4444; color: white; padding: 10px; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="window.location.href='index.html'"> << VISSZA</button>
+    <div class="container">
+        <h1>TRAKTOR NYILVÁNTARTÁS</h1>
+        <div class="form-grid">
+            <input type="text" id="m" placeholder="Márka">
+            <input type="text" id="t" placeholder="Tulajdonos">
+            <input type="text" id="u" placeholder="Üzemanyag">
+            <input type="number" id="uk" placeholder="Üzemóra ktg">
+            <input type="date" id="musz">
+            <button class="add-btn" style="grid-column: span 2;" onclick="saveT()">HOZZÁADÁS / MENTÉS</button>
+        </div>
+        <table id="tTable"><thead><tr><th>Márka</th><th>Tulaj</th><th>Műszaki</th><th>Művelet</th></tr></thead><tbody id="tBody"></tbody></table>
+    </div>
+    <script>
+        db.ref('traktorok').on('value', (snapshot) => {
+            const list = snapshot.val() || {};
+            const tbody = document.getElementById('tBody');
+            tbody.innerHTML = '';
+            for(let id in list) {
+                const o = list[id];
+                tbody.innerHTML += `<tr>
+                    <td><b>${o.m}</b></td><td>${o.t}</td><td>${o.musz}</td>
+                    <td><button onclick="db.ref('traktorok/${id}').remove()" style="color:red;">Törlés</button></td>
+                </tr>`;
+            }
+        });
+
+        function saveT() {
+            const obj = {
+                m: document.getElementById('m').value,
+                t: document.getElementById('t').value,
+                u: document.getElementById('u').value,
+                musz: document.getElementById('musz').value
+            };
+            db.ref('traktorok').push(obj);
+        }
+    </script>
+</body>
+</html>

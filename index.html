@@ -1,0 +1,114 @@
+
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Kárpáti Rendszer - Belépés</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <script>
+        // A te egyedi adataid:
+        const firebaseConfig = {
+          apiKey: "AIzaSyB74XnNg_dWDBalyTPd1fAUOlQT_0rddaE",
+          authDomain: "karpati-rendszer.firebaseapp.com",
+          databaseURL: "https://karpati-rendszer-default-rtdb.europe-west1.firebasedatabase.app",
+          projectId: "karpati-rendszer",
+          storageBucket: "karpati-rendszer.firebasestorage.app",
+          messagingSenderId: "743687645148",
+          appId: "1:743687645148:web:458a63fb7b4a874f605119"
+        };
+
+        // Inicializálás (Figyelj, hogy ne legyen hiba, ha többször fut le)
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+    </script>
+
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #2c3e50; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; color: white; overflow: hidden; }
+        .login-box { background: white; color: #333; padding: 40px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.3); text-align: center; width: 350px; }
+        input { width: 100%; padding: 15px; margin: 20px 0; border: 2px solid #ddd; border-radius: 10px; font-size: 20px; text-align: center; box-sizing: border-box; }
+        .btn { background: #3498db; color: white; border: none; padding: 15px 30px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; transition: 0.3s; }
+        #main-content { display: none; width: 100%; height: 100vh; background: #f0f2f5; color: #333; overflow-y: auto; }
+        header { background: #2c3e50; color: white; padding: 20px; text-align: center; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .logout-btn { position: absolute; top: 20px; right: 20px; background: #e74c3c; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .section-title { text-align: center; margin-top: 40px; color: #2c3e50; text-transform: uppercase; letter-spacing: 2px; font-size: 1.2em; border-bottom: 2px solid #ddd; display: inline-block; width: 80%; margin-left: 10%; padding-bottom: 5px; }
+        .container { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; padding: 20px 40px 40px 40px; max-width: 1200px; margin: auto; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); cursor: pointer; transition: 0.3s; border-bottom: 6px solid #3498db; text-align: center; font-weight: bold; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .agro { border-color: #2ecc71; } .pest { border-color: #e67e22; } .const { border-color: #3498db; }
+    </style>
+</head>
+<body>
+    <div id="login-screen" class="login-box">
+        <h2 style="margin:0;">Kárpáti Rendszer</h2>
+        <p style="color: #666;">Felhő alapú bejelentkezés</p>
+        <input type="password" id="pinInput" placeholder="PIN kód">
+        <button class="btn" onclick="checkLogin()">BELÉPÉS</button>
+    </div>
+
+    <div id="main-content">
+        <header>
+            <h1 id="welcomeText">Üdvözöljük!</h1>
+            <button class="logout-btn" onclick="location.reload()">Kijelentkezés</button>
+        </header>
+        <div id="agro-section"><h2 class="section-title">Mezőgazdaság</h2><div class="container" id="agro-buttons"></div></div>
+        <div id="pest-section"><h2 class="section-title">Kártevőirtás</h2><div class="container" id="pest-buttons"></div></div>
+        <div id="const-section"><h2 class="section-title">Építőipar</h2><div class="container" id="const-buttons"></div></div>
+    </div>
+
+    <script>
+        function checkLogin() {
+            const pin = document.getElementById('pinInput').value;
+            if(pin === "2005") {
+                showMenu("F Ő N Ö K", ["Raktár", "Traktorok", "Területek", "Kollégák", "Pénztárkönyv", "Új munka", "Szerződések", "Eszközök", "Elszámolás"]);
+                return;
+            }
+
+            // Firebase lekérdezés a kollégákhoz
+            db.ref('kollegak').once('value').then((snapshot) => {
+                const workers = snapshot.val() || [];
+                const user = Object.values(workers).find(w => w.pin === pin);
+                if(user) {
+                    showMenu(user.nev, user.perms);
+                } else {
+                    alert("Hibás PIN kód!");
+                }
+            });
+        }
+
+        function showMenu(name, perms) {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('main-content').style.display = 'block';
+            document.getElementById('welcomeText').innerText = "Üdvözöljük, " + name + "!";
+            document.body.style.background = "#f0f2f5";
+
+            const agroList = ["Raktár", "Traktorok", "Területek", "Kollégák", "Pénztárkönyv"];
+            const pestList = ["Új munka", "Szerződések"];
+            const constList = ["Eszközök", "Elszámolás"];
+
+            const containers = { agro: document.getElementById('agro-buttons'), pest: document.getElementById('pest-buttons'), const: document.getElementById('const-buttons') };
+            
+            perms.forEach(item => {
+                let type = agroList.includes(item) ? 'agro' : (pestList.includes(item) ? 'pest' : 'const');
+                const div = document.createElement('div');
+                div.className = 'card ' + type;
+                div.innerHTML = `<h3>${item}</h3>`;
+                div.onclick = () => {
+                    const pages = { 'Raktár': 'raktar.html', 'Traktorok': 'traktorok.html', 'Területek': 'teruletek.html', 'Kollégák': 'kollegak.html', 'Eszközök': 'epitoipar.html' };
+                    if(pages[item]) window.location.href = pages[item];
+                    else alert(item + " modul fejlesztés alatt.");
+                };
+                containers[type].appendChild(div);
+            });
+
+            if(containers.agro.children.length === 0) document.getElementById('agro-section').style.display = 'none';
+            if(containers.pest.children.length === 0) document.getElementById('pest-section').style.display = 'none';
+            if(containers.const.children.length === 0) document.getElementById('const-section').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

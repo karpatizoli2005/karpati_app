@@ -1,0 +1,108 @@
+
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Felhő Raktár</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <script>
+        // A te egyedi adataid:
+        const firebaseConfig = {
+          apiKey: "AIzaSyB74XnNg_dWDBalyTPd1fAUOlQT_0rddaE",
+          authDomain: "karpati-rendszer.firebaseapp.com",
+          databaseURL: "https://karpati-rendszer-default-rtdb.europe-west1.firebasedatabase.app",
+          projectId: "karpati-rendszer",
+          storageBucket: "karpati-rendszer.firebasestorage.app",
+          messagingSenderId: "743687645148",
+          appId: "1:743687645148:web:458a63fb7b4a874f605119"
+        };
+
+        // Inicializálás (Figyelj, hogy ne legyen hiba, ha többször fut le)
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+    </script>
+
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; }
+        .box { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 25px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 15px; align-items: end; }
+        input, select { padding: 12px; border: 1px solid #ccc; border-radius: 8px; width: 100%; }
+        .add-btn { background: #2ecc71; color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .back-btn { background: #ff4444; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #34495e; color: white; padding: 12px; text-align: left; }
+        td { padding: 12px; border-bottom: 1px solid #eee; }
+        .stock-badge { background: #e8f4fd; color: #2980b9; padding: 6px 12px; border-radius: 20px; font-weight: bold; border: 1px solid #3498db; }
+        .type-in { color: green; font-weight: bold; } .type-out { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="window.location.href='index.html'"> << VISSZA</button>
+    <div class="container">
+        <div class="box">
+            <h2>Mozgás rögzítése</h2>
+            <div class="form-row">
+                <div><select id="itemSelect" onchange="checkNewItem(this)"><option value="">-- Válassz --</option><option value="NEW">+ ÚJ TÉTEL</option></select></div>
+                <div id="newNameDiv" style="display:none;"><input type="text" id="newItemName" placeholder="Új név"></div>
+                <div><select id="moveType"><option value="IN">Bevétel (+)</option><option value="OUT">Kiadás (-)</option></select></div>
+                <div><input type="number" id="itemQty" placeholder="Mennyiség"></div>
+                <button class="add-btn" onclick="processMovement()">RÖGZÍT</button>
+            </div>
+        </div>
+        <div class="box">
+            <h2>Aktuális Készlet (Felhő szinkron)</h2>
+            <table><thead><tr><th>Tétel</th><th>Készlet</th><th>Frissítve</th></tr></thead><tbody id="stockBody"></tbody></table>
+        </div>
+    </div>
+
+    <script>
+        let inventory = {};
+        
+        // SZINKRONIZÁCIÓ: Automatikus betöltés és frissítés
+        db.ref('raktar').on('value', (snapshot) => {
+            const data = snapshot.val() || { inv: {}, logs: [] };
+            inventory = data.inv;
+            updateUI(data.logs || []);
+        });
+
+        function processMovement() {
+            let itemName = document.getElementById('itemSelect').value;
+            if (itemName === 'NEW') itemName = document.getElementById('newItemName').value;
+            const type = document.getElementById('moveType').value;
+            const qty = parseFloat(document.getElementById('itemQty').value);
+            if (!itemName || isNaN(qty)) return;
+
+            const now = new Date().toLocaleString('hu-HU');
+            if (!inventory[itemName]) inventory[itemName] = { qty: 0, lastUpdate: "" };
+            
+            inventory[itemName].qty += (type === 'IN' ? qty : -qty);
+            inventory[itemName].lastUpdate = now;
+
+            // Csak egy mentés a Firebase-be, és mindenkinél frissül
+            db.ref('raktar/inv').set(inventory);
+            db.ref('raktar/logs').push({ time: now, name: itemName, type: type, qty: qty });
+            
+            document.getElementById('itemQty').value = '';
+        }
+
+        function updateUI(logs) {
+            const sBody = document.getElementById('stockBody');
+            const select = document.getElementById('itemSelect');
+            sBody.innerHTML = '';
+            select.innerHTML = '<option value="">-- Válassz --</option><option value="NEW">+ ÚJ TÉTEL</option>';
+
+            for (let item in inventory) {
+                sBody.innerHTML += `<tr><td><b>${item}</b></td><td><span class="stock-badge">${inventory[item].qty}</span></td><td style="font-size:12px;">${inventory[item].lastUpdate}</td></tr>`;
+                select.innerHTML += `<option value="${item}">${item}</option>`;
+            }
+        }
+        function checkNewItem(sel) { document.getElementById('newNameDiv').style.display = (sel.value === 'NEW') ? 'block' : 'none'; }
+    </script>
+</body>
+</html>
