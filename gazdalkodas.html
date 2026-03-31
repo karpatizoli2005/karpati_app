@@ -1,0 +1,181 @@
+
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Gazdálkodási Napló</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; }
+        .box { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1 { color: #2c3e50; border-bottom: 3px solid #27ae60; padding-bottom: 8px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #34495e; color: white; padding: 12px; text-align: left; }
+        td { padding: 12px; border-bottom: 1px solid #eee; }
+        tr.clickable-row { cursor: pointer; transition: 0.2s; }
+        tr.clickable-row:hover { background: #f1f1f1; }
+        .status-planned { color: #0d47a1; font-weight: bold; }
+        .status-done { color: #1b5e20; font-weight: bold; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+        .form-group { display: flex; flex-direction: column; font-size: 12px; }
+        input, select, textarea { padding: 8px; border-radius: 5px; border: 1px solid #ccc; }
+        .btn-add { background: #27ae60; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 15px; font-weight: bold; }
+        .back-btn { background: #7f8c8d; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-bottom: 10px; font-weight: bold; }
+        
+        /* Modal - Középre rendezve és láthatóan */
+        .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); overflow-y: auto; }
+        .modal-content { background: white; margin: 5% auto; padding: 25px; width: 90%; max-width: 700px; border-radius: 12px; position: relative; }
+        .close { position: absolute; right: 20px; top: 15px; font-size: 30px; cursor: pointer; color: #e74c3c; }
+        .detail-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .detail-table th, .detail-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        .detail-table th { background: #f8f9fa; width: 40%; }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="window.location.href='index.html'">⬅ VISSZA A MENÜBE</button>
+    <div class="container">
+        <div class="box">
+            <h1>Gazdálkodási Napló (Összesítő)</h1>
+            <table>
+                <thead>
+                    <tr><th>Dátum</th><th>Terület</th><th>Munka</th><th>Állapot</th><th>Törlés</th></tr>
+                </thead>
+                <tbody id="naploBody"></tbody>
+            </table>
+        </div>
+
+        <div class="box">
+            <h3>➕ Új munka tervezése</h3>
+            <div class="form-grid">
+                <div class="form-group"><label>Dátum</label><input type="date" id="m_datum"></div>
+                <div class="form-group"><label>Terület</label><select id="m_terulet" onchange="updateHa()"></select></div>
+                <div class="form-group"><label>Ha</label><input type="text" id="m_ha" readonly style="background:#eee;"></div>
+                <div class="form-group"><label>Kultúra</label><input type="text" id="m_kultura"></div>
+                <div class="form-group"><label>Munka</label>
+                    <select id="m_folyamat">
+                        <option>Talajlazítás</option><option>Szántás</option><option>Favágás</option><option>Sorköz művelés</option><option>Mt.szórás</option><option>Kaszálás</option><option>Egyéb</option><option>Szerelés</option><option>Magágy készítés</option>
+                        <option>Permetezés</option><option>Vetés</option><option>Betakarítás</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Traktor</label><select id="m_traktor"></select></div>
+                <div class="form-group"><label>Eszköz</label><select id="m_eszkoz"></select></div>
+                <div class="form-group"><label>Dolgozó</label><select id="m_dolgozo"></select></div>
+            </div>
+            <button class="btn-add" onclick="saveWork()">MUNKA MENTÉSE ÉS KIADÁSA</button>
+        </div>
+    </div>
+
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 style="border-bottom: 2px solid #27ae60;">Munkafolyamat Részletei</h2>
+            <div id="modalData"></div>
+        </div>
+    </div>
+
+    <script>
+        let db = JSON.parse(localStorage.getItem('agro_gazd_naplo') || '[]');
+
+        window.onload = function() {
+            loadFilters();
+            renderTable();
+        };
+
+        function loadFilters() {
+            const teruletek = JSON.parse(localStorage.getItem('mezo_teruletek') || '[]');
+            const traktorok = JSON.parse(localStorage.getItem('geppark_adatok') || '[]');
+            const eszkozok = JSON.parse(localStorage.getItem('agro_eszkozok') || '[]');
+            const kollegak = JSON.parse(localStorage.getItem('vallalat_kollegak') || '[]');
+
+            const fill = (id, data, key) => {
+                const el = document.getElementById(id);
+                el.innerHTML = '<option value="">Válassz...</option>';
+                data.forEach(i => {
+                    let opt = document.createElement('option');
+                    opt.value = i[key] || i.nev || i.name;
+                    opt.innerText = i[key] || i.nev || i.name;
+                    if(id==='m_terulet') opt.dataset.ha = i.ha;
+                    if(id==='m_traktor') opt.dataset.rate = i.uk || 0;
+                    el.appendChild(opt);
+                });
+            };
+
+            fill('m_terulet', teruletek, 'nev');
+            fill('m_traktor', traktorok, 'm');
+            fill('m_eszkoz', eszkozok, 'name');
+            fill('m_dolgozo', kollegak, 'nev');
+        }
+
+        function updateHa() {
+            const s = document.getElementById('m_terulet');
+            document.getElementById('m_ha').value = s.options[s.selectedIndex].dataset.ha || "";
+        }
+
+        function saveWork() {
+            const tSel = document.getElementById('m_traktor');
+            const rate = parseFloat(tSel.options[tSel.selectedIndex]?.dataset.rate || 0);
+            const entry = {
+                id: Date.now(),
+                datum: document.getElementById('m_datum').value,
+                terulet: document.getElementById('m_terulet').value,
+                ha: document.getElementById('m_ha').value,
+                kultura: document.getElementById('m_kultura').value,
+                folyamat: document.getElementById('m_folyamat').value,
+                traktor: document.getElementById('m_traktor').value,
+                traktorRate: rate,
+                eszkoz: document.getElementById('m_eszkoz').value,
+                dolgozo: document.getElementById('m_dolgozo').value,
+                status: 'planned',
+                uora: 0, mido: 0, koltseg: 0, megj: ''
+            };
+            db.push(entry);
+            localStorage.setItem('agro_gazd_naplo', JSON.stringify(db));
+            location.reload();
+        }
+
+        function renderTable() {
+            const body = document.getElementById('naploBody');
+            body.innerHTML = '';
+            db.sort((a,b) => new Date(b.datum) - new Date(a.datum));
+            
+            db.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = 'clickable-row';
+                tr.innerHTML = `
+                    <td onclick="openDetails(${item.id})">${item.datum}</td>
+                    <td onclick="openDetails(${item.id})">${item.terulet}</td>
+                    <td onclick="openDetails(${item.id})">${item.folyamat}</td>
+                    <td onclick="openDetails(${item.id})"><span class="status-${item.status}">${item.status==='done'?'Elvégzett':'Tervezett'}</span></td>
+                    <td>${item.status==='done' ? `<button onclick="deleteItem(${item.id})" style="background:#e74c3c; color:white; border:none; padding:5px; border-radius:4px; cursor:pointer;">X</button>` : ''}</td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        function openDetails(id) {
+            const item = db.find(x => x.id === id);
+            const modalData = document.getElementById('modalData');
+            modalData.innerHTML = `
+                <table class="detail-table">
+                    <tr><th>Állapot</th><td><b class="status-${item.status}">${item.status==='done'?'ELVÉGEZVE':'TERVEZETT'}</b></td></tr>
+                    <tr><th>Dátum</th><td>${item.datum}</td></tr>
+                    <tr><th>Terület</th><td>${item.terulet} (${item.ha} Ha)</td></tr>
+                    <tr><th>Munka</th><td>${item.folyamat}</td></tr>
+                    <tr><th>Gépcsoport</th><td>${item.traktor} + ${item.eszkoz}</td></tr>
+                    <tr><th>Dolgozó</th><td>${item.dolgozo}</td></tr>
+                    <tr><th>Üzemóra</th><td>${item.uora} óra</td></tr>
+                    <tr><th>Munkaidő</th><td>${item.mido} óra</td></tr>
+                    <tr><th>Gépköltség</th><td>${item.koltseg.toLocaleString()} Ft</td></tr>
+                    <tr style="background:#fff3cd;"><th>Dolgozó megjegyzése</th><td>${item.megj || '<i>Nincs megjegyzés</i>'}</td></tr>
+                </table>
+            `;
+            document.getElementById('detailModal').style.display = "block";
+        }
+
+        function closeModal() { document.getElementById('detailModal').style.display = "none"; }
+        function deleteItem(id) { if(confirm("Törlöd?")) { db = db.filter(x => x.id !== id); localStorage.setItem('agro_gazd_naplo', JSON.stringify(db)); renderTable(); } }
+        
+        window.onclick = function(event) { if (event.target == document.getElementById('detailModal')) closeModal(); }
+    </script>
+</body>
+</html>

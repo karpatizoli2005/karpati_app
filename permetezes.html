@@ -1,0 +1,217 @@
+
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Permetezési Napló - Kárpáti Rendszer</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 15px; color: #333; margin: 0; }
+        .container { max-width: 100%; margin: auto; }
+        .box { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        
+        h1 { color: #2c3e50; font-size: 18px; border-bottom: 2px solid #e67e22; padding-bottom: 5px; margin-top: 0; }
+        
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; align-items: end; }
+        .form-group { display: flex; flex-direction: column; }
+        label { font-size: 10px; font-weight: bold; margin-bottom: 2px; color: #555; }
+        input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; outline: none; }
+
+        .btn-add { background: #e67e22; color: white; border: none; padding: 9px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .filter-bar { background: #34495e; padding: 12px; border-radius: 10px; display: flex; gap: 10px; align-items: flex-end; margin-bottom: 15px; color: white; flex-wrap: wrap; }
+        .btn-print { background: #2ecc71; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+
+        .table-res { overflow-x: auto; background: white; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 1100px; }
+        th { background: #2c3e50; color: white !important; padding: 8px 3px; text-align: left; border: 1px solid #444; }
+        td { padding: 6px 3px; border: 1px solid #eee; color: #333 !important; }
+
+        .delete-col button { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 14px; }
+        .back-btn { background: #7f8c8d; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-bottom: 10px; font-weight: bold; }
+
+        .print-header { display: none; text-align: center; margin-bottom: 10px; border-bottom: 1px solid black; }
+
+        /* NYOMTATÁSI OPTIMALIZÁLÁS */
+        @media print {
+            @page { size: A4 landscape; margin: 0.3cm; }
+            body { background: white !important; color: black !important; padding: 0; margin: 0; }
+            .box, .filter-bar, .back-btn, .delete-col, .btn-add { display: none !important; }
+            .print-header { display: block !important; }
+            
+            table { 
+                width: 100% !important; 
+                border: 1px solid black !important; 
+                font-size: 8px !important; /* Extra kicsi betű a lapra féréshez */
+                table-layout: fixed; /* Fix oszlopszélesség kényszerítése */
+            }
+            th, td { 
+                border: 1px solid black !important; 
+                padding: 2px 1px !important; 
+                word-wrap: break-word; /* Hosszú szövegek törése */
+                overflow: hidden;
+            }
+            th { background: #eee !important; color: black !important; font-size: 8px; }
+            
+            /* Oszlopszélességek finomhangolása nyomtatáshoz */
+            .col-date { width: 60px; }
+            .col-time { width: 35px; }
+            .col-ha { width: 40px; }
+            .col-viz { width: 40px; }
+            .col-eevi { width: 35px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <button class="back-btn" onclick="window.location.href='index.html'">⬅ VISSZA</button>
+
+        <div class="print-header">
+            <h2 style="margin:0; font-size: 16px;">Kárpáti Zoltán Permetezési Naplója</h2>
+            <p style="margin:2px; font-size: 10px;">Kelt: <span id="todayDate"></span></p>
+        </div>
+
+        <div class="box">
+            <h1>Adatbevitel</h1>
+            <div class="form-grid">
+                <div class="form-group"><label>Kultúra</label><input type="text" id="p_kultura"></div>
+                <div class="form-group"><label>Tábla</label><input type="text" id="p_tabla"></div>
+                <div class="form-group"><label>EK sorsz.</label><input type="text" id="p_ek"></div>
+                <div class="form-group"><label>Dátum</label><input type="date" id="p_datum"></div>
+                <div class="form-group"><label>Idő</label><input type="time" id="p_ido"></div>
+                <div class="form-group"><label>Terület</label><input type="number" step="0.01" id="p_ha"></div>
+                <div class="form-group"><label>Mód</label><input type="text" id="p_mod"></div>
+                <div class="form-group"><label>Szer</label><input type="text" id="p_szer"></div>
+                <div class="form-group"><label>Hatóanyag</label><input type="text" id="p_hatonyag"></div>
+                <div class="form-group"><label>Dózis</label><input type="text" id="p_dozis"></div>
+                <div class="form-group"><label>Víz</label><input type="number" id="p_viz"></div>
+                <div class="form-group"><label>BBCH</label><input type="text" id="p_bbch"></div>
+                <div class="form-group"><label>ÉEVI</label><input type="number" id="p_eevi"></div>
+                <button class="btn-add" onclick="addEntry()">OK</button>
+            </div>
+        </div>
+
+        <div class="filter-bar">
+            <div class="form-group"><label>Szűrés:</label><select id="f_kultura" onchange="filterData()"></select></div>
+            <div class="form-group"><label>Tól:</label><input type="date" id="f_tol" onchange="filterData()"></div>
+            <div class="form-group"><label>Ig:</label><input type="date" id="f_ig" onchange="filterData()"></div>
+            <button class="btn-print" onclick="printDiary()">🖨 NYOMTATÁS (FEKVŐ A4)</button>
+        </div>
+
+        <div class="table-res">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="col-date">Dátum</th>
+                        <th class="col-time">Idő</th>
+                        <th>Kultúra</th>
+                        <th>Tábla</th>
+                        <th>EK sorsz.</th>
+                        <th class="col-ha">Terület</th>
+                        <th>Mód</th>
+                        <th>Szer neve</th>
+                        <th>Hatóanyag</th>
+                        <th>Dózis</th>
+                        <th class="col-viz">Víz(l)</th>
+                        <th>BBCH</th>
+                        <th class="col-eevi">ÉEVI</th>
+                        <th class="delete-col"></th>
+                    </tr>
+                </thead>
+                <tbody id="logBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let logs = JSON.parse(localStorage.getItem('agro_permet_naplo') || '[]');
+
+        window.onload = () => { updateFilters(); filterData(); };
+
+        function addEntry() {
+            const entry = {
+                id: Date.now(),
+                kultura: document.getElementById('p_kultura').value,
+                tabla: document.getElementById('p_tabla').value,
+                ek: document.getElementById('p_ek').value,
+                datum: document.getElementById('p_datum').value,
+                ido: document.getElementById('p_ido').value,
+                ha: document.getElementById('p_ha').value,
+                mod: document.getElementById('p_mod').value,
+                szer: document.getElementById('p_szer').value,
+                hatonyag: document.getElementById('p_hatonyag').value,
+                eevi: document.getElementById('p_eevi').value,
+                bbch: document.getElementById('p_bbch').value,
+                dozis: document.getElementById('p_dozis').value,
+                viz: document.getElementById('p_viz').value
+            };
+            logs.push(entry);
+            localStorage.setItem('agro_permet_naplo', JSON.stringify(logs));
+            updateFilters(); filterData();
+            // Mezők ürítése
+            const inputs = document.querySelectorAll('.box input');
+            inputs.forEach(i => i.value = "");
+        }
+
+        function filterData() {
+            const fK = document.getElementById('f_kultura').value;
+            const fT = document.getElementById('f_tol').value;
+            const fI = document.getElementById('f_ig').value;
+
+            const filtered = logs.filter(l => {
+                return (fK === "" || l.kultura === fK) && 
+                       (fT === "" || l.datum >= fT) && 
+                       (fI === "" || l.datum <= fI);
+            });
+            renderTable(filtered);
+        }
+
+        function renderTable(data) {
+            const body = document.getElementById('logBody');
+            body.innerHTML = '';
+            data.sort((a,b) => new Date(b.datum + 'T' + b.ido) - new Date(a.datum + 'T' + a.ido));
+            
+            data.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.datum}</td>
+                    <td>${item.ido}</td>
+                    <td><b>${item.kultura}</b></td>
+                    <td>${item.tabla}</td>
+                    <td>${item.ek}</td>
+                    <td>${item.ha} ha</td>
+                    <td>${item.mod}</td>
+                    <td>${item.szer}</td>
+                    <td>${item.hatonyag}</td>
+                    <td>${item.dozis}</td>
+                    <td>${item.viz}</td>
+                    <td>${item.bbch}</td>
+                    <td>${item.eevi}</td>
+                    <td class="delete-col"><button onclick="deleteEntry(${item.id})">🗑</button></td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        function updateFilters() {
+            const select = document.getElementById('f_kultura');
+            const unique = [...new Set(logs.map(l => l.kultura))];
+            select.innerHTML = '<option value="">Mind</option>';
+            unique.forEach(k => { select.innerHTML += `<option value="${k}">${k}</option>`; });
+        }
+
+        function deleteEntry(id) {
+            if(confirm("Törli?")) {
+                logs = logs.filter(l => l.id !== id);
+                localStorage.setItem('agro_permet_naplo', JSON.stringify(logs));
+                filterData(); updateFilters();
+            }
+        }
+
+        function printDiary() {
+            document.getElementById('todayDate').innerText = new Date().toLocaleDateString('hu-HU');
+            setTimeout(() => { window.print(); }, 200);
+        }
+    </script>
+</body>
+</html>

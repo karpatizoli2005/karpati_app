@@ -1,0 +1,203 @@
+
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eszközök - Kárpáti Rendszer</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; color: #333; margin: 0; }
+        .container { max-width: 1100px; margin: auto; }
+        .box { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 25px; }
+        
+        h1 { color: #2c3e50; margin-top: 0; font-size: 22px; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        
+        .form-grid { 
+            display: grid; 
+            grid-template-columns: 2fr 1fr 1fr 2fr auto; 
+            gap: 12px; 
+            align-items: end; 
+        }
+        
+        label { display: block; font-size: 12px; font-weight: bold; color: #555; margin-bottom: 5px; }
+        input { 
+            padding: 12px; 
+            border: 2px solid #ddd; 
+            border-radius: 8px; 
+            width: 100%; 
+            box-sizing: border-box; 
+            font-size: 14px;
+        }
+        
+        .add-btn { background: #3498db; color: white; border: none; padding: 0 25px; border-radius: 8px; cursor: pointer; font-weight: bold; height: 45px; transition: 0.2s; }
+        .add-btn:hover { background: #2980b9; }
+        .back-btn { background: #34495e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-bottom: 20px; font-weight: bold; }
+
+        /* ESZKÖZ KÁRTYÁK */
+        .tool-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
+            gap: 20px; 
+        }
+        .tool-card { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); 
+            border-left: 6px solid #3498db;
+            position: relative;
+            transition: 0.2s;
+        }
+        .tool-card:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,0,0,0.1); }
+        .tool-card h3 { margin: 0 0 10px 0; color: #2c3e50; font-size: 18px; }
+        .tool-info { font-size: 14px; margin-bottom: 5px; color: #666; }
+        .tool-info b { color: #333; }
+        
+        /* FELADAT TAG-EK */
+        .task-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+        .task-tag { 
+            background: #ebf5ff; 
+            color: #007bff; 
+            padding: 4px 12px; 
+            border-radius: 20px; 
+            font-size: 11px; 
+            font-weight: bold; 
+            border: 1px solid #cce5ff;
+        }
+
+        .delete-btn { 
+            position: absolute; 
+            top: 15px; 
+            right: 15px; 
+            color: #e74c3c; 
+            cursor: pointer; 
+            background: none; 
+            border: none; 
+            font-size: 18px; 
+            opacity: 0.6;
+        }
+        .delete-btn:hover { opacity: 1; }
+
+        @media (max-width: 900px) {
+            .form-grid { grid-template-columns: 1fr 1fr; }
+            .add-btn { grid-column: span 2; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <button class="back-btn" onclick="window.location.href='index.html'">⬅ VISSZA A FŐOLDALRA</button>
+
+        <div class="box">
+            <h1>Eszközök Kezelése</h1>
+            <div class="form-grid">
+                <div>
+                    <label>Eszköz neve</label>
+                    <input type="text" id="toolName" placeholder="pl. Vetőgép">
+                </div>
+                <div>
+                    <label>Beszerzési Ár (Ft)</label>
+                    <input type="number" id="toolPrice" placeholder="0">
+                </div>
+                <div>
+                    <label>Beszerzés ideje</label>
+                    <input type="date" id="toolDate">
+                </div>
+                <div>
+                    <label>Feladatai (vesszővel elválasztva)</label>
+                    <input type="text" id="toolTasks" placeholder="vetés, hengerezés...">
+                </div>
+                <button class="add-btn" onclick="addTool()">MENTÉS</button>
+            </div>
+        </div>
+
+        <div class="tool-grid" id="toolDisplay">
+            </div>
+    </div>
+
+    <script>
+        let tools = [];
+
+        window.onload = function() {
+            const saved = localStorage.getItem('agro_eszkozok');
+            if (saved) {
+                tools = JSON.parse(saved);
+                renderTools();
+            }
+        };
+
+        function addTool() {
+            const name = document.getElementById('toolName').value.trim();
+            const price = document.getElementById('toolPrice').value;
+            const date = document.getElementById('toolDate').value;
+            const tasksStr = document.getElementById('toolTasks').value;
+
+            if (!name || !price || !date) {
+                alert("Kérjük, töltsön ki minden kötelező mezőt!");
+                return;
+            }
+
+            // Szöveg szétszedése tömbbé a vesszők mentén
+            const tasks = tasksStr.split(',')
+                .map(t => t.trim())
+                .filter(t => t !== "");
+
+            const newTool = {
+                id: Date.now(),
+                name: name,
+                price: parseInt(price).toLocaleString('hu-HU') + " Ft",
+                date: date,
+                tasks: tasks
+            };
+
+            tools.push(newTool);
+            save();
+            renderTools();
+            
+            // Mezők alaphelyzetbe állítása
+            document.getElementById('toolName').value = "";
+            document.getElementById('toolPrice').value = "";
+            document.getElementById('toolDate').value = "";
+            document.getElementById('toolTasks').value = "";
+        }
+
+        function renderTools() {
+            const display = document.getElementById('toolDisplay');
+            display.innerHTML = '';
+
+            tools.forEach(tool => {
+                const card = document.createElement('div');
+                card.className = 'tool-card';
+                
+                const tasksHTML = tool.tasks.length > 0 
+                    ? tool.tasks.map(t => `<span class="task-tag">${t}</span>`).join('')
+                    : '<span style="color:#999; font-size:12px;">Nincs megadott feladat</span>';
+
+                card.innerHTML = `
+                    <button class="delete-btn" onclick="deleteTool(${tool.id})">🗑</button>
+                    <h3>${tool.name}</h3>
+                    <div class="tool-info"><b>Beszerzési ár:</b> ${tool.price}</div>
+                    <div class="tool-info"><b>Dátum:</b> ${tool.date}</div>
+                    <div class="task-list">
+                        ${tasksHTML}
+                    </div>
+                `;
+                display.appendChild(card);
+            });
+        }
+
+        function deleteTool(id) {
+            if (confirm("Biztosan törölni szeretné ezt az eszközt?")) {
+                tools = tools.filter(t => t.id !== id);
+                save();
+                renderTools();
+            }
+        }
+
+        function save() {
+            localStorage.setItem('agro_eszkozok', JSON.stringify(tools));
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Területek Nyilvántartása</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f6; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .main-content { display: flex; gap: 20px; flex: 1; min-height: 0; }
+        
+        /* Bal oldal: Lista és Űrlap */
+        .sidebar { width: 350px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow-y: auto; }
+        
+        /* Jobb oldal: Térkép */
+        #map { flex: 1; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border: 2px solid white; }
+        
+        .input-group { margin-bottom: 10px; }
+        label { font-size: 12px; font-weight: bold; color: #555; }
+        input, select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        
+        .btn { padding: 10px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; }
+        .save-btn { background: #2ecc71; color: white; margin-top: 15px; }
+        .draw-btn { background: #3498db; color: white; }
+        .back-btn { background: #ff4444; color: white; width: auto; padding: 10px 20px; }
+        
+        .area-item { background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 5px solid #3498db; cursor: pointer; }
+        .area-item:hover { background: #edf2f7; }
+        .area-item h4 { margin: 0; color: #2c3e50; }
+        .area-item p { margin: 2px 0; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <button class="back-btn" onclick="window.location.href='index.html'"> << Vissza a Menübe</button>
+        <h1>TERÜLET NYILVÁNTARTÁS ÉS TÉRKÉP</h1>
+        <div style="width:100px;"></div>
+    </div>
+
+    <div class="main-content">
+        <div class="sidebar">
+            <h3>Új terület rögzítése</h3>
+            <div class="input-group">
+                <label>Terület neve</label>
+                <input type="text" id="tNev" placeholder="pl. Belső-tábla">
+            </div>
+            <div class="input-group">
+                <label>Terület nagysága (Ha)</label>
+                <input type="number" step="0.01" id="tMeret" placeholder="pl. 12.45">
+            </div>
+            <div class="input-group">
+                <label>Helyrajzi szám</label>
+                <input type="text" id="tHrsz" placeholder="pl. 0123/45">
+            </div>
+            <div class="input-group">
+                <label>Használat módja</label>
+                <select id="tMod">
+                    <option value="Szántó">Szántó</option>
+                    <option value="Legelő">Legelő</option>
+                    <option value="Erdő">Erdő</option>
+                    <option value="Gyümölcsös">Gyümölcsös</option>
+                </select>
+            </div>
+            
+            <p style="font-size: 11px; color: #e67e22;"><i>* Kattints a térképre a körvonalak kijelöléséhez!</i></p>
+            <button class="btn draw-btn" onclick="clearDrawing()">Rajz törlése / Újrakezdés</button>
+            <button class="btn save-btn" onclick="saveArea()">TERÜLET MENTÉSE</button>
+            
+            <hr>
+            <h3>Rögzített területek</h3>
+            <div id="areaList"></div>
+        </div>
+
+        <div id="map"></div>
+    </div>
+
+    <script>
+        // Térkép inicializálása (Magyarország közepére fókuszálva)
+        var map = L.map('map').setView([47.16, 19.50], 7);
+
+        // Műholdas nézet hozzáadása (Esri World Imagery)
+        var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        }).addTo(map);
+
+        var currentPoints = [];
+        var currentPolygon = null;
+        var savedAreas = [];
+
+        // Kattintás a térképen pontok elhelyezéséhez
+        map.on('click', function(e) {
+            currentPoints.push([e.latlng.lat, e.latlng.lng]);
+            drawPreview();
+        });
+
+        function drawPreview() {
+            if (currentPolygon) map.removeLayer(currentPolygon);
+            if (currentPoints.length > 1) {
+                currentPolygon = L.polygon(currentPoints, {color: 'red'}).addTo(map);
+            }
+        }
+
+        function clearDrawing() {
+            if (currentPolygon) map.removeLayer(currentPolygon);
+            currentPoints = [];
+            currentPolygon = null;
+        }
+
+        function saveArea() {
+            const areaData = {
+                nev: document.getElementById('tNev').value,
+                ha: document.getElementById('tMeret').value,
+                hrsz: document.getElementById('tHrsz').value,
+                mod: document.getElementById('tMod').value,
+                coords: currentPoints
+            };
+
+            if(!areaData.nev || currentPoints.length < 3) {
+                alert("Adj nevet a területnek és jelölj ki legalább 3 pontot a térképen!");
+                return;
+            }
+
+            savedAreas.push(areaData);
+            localStorage.setItem('mezo_teruletek', JSON.stringify(savedAreas));
+            
+            renderList();
+            clearDrawing();
+            // Mezők ürítése
+            document.getElementById('tNev').value = '';
+            document.getElementById('tMeret').value = '';
+            document.getElementById('tHrsz').value = '';
+        }
+
+        function renderList() {
+            const listDiv = document.getElementById('areaList');
+            listDiv.innerHTML = '';
+            
+            // Meglévő rajzok törlése a térképről, hogy újra kirajzoljuk az összeset
+            map.eachLayer(function (layer) {
+                if (layer instanceof L.Polygon && layer !== currentPolygon) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            savedAreas.forEach((area, index) => {
+                // Lista elem
+                const div = document.createElement('div');
+                div.className = 'area-item';
+                div.innerHTML = `<h4>${area.nev} (${area.ha} Ha)</h4><p>HRSZ: ${area.hrsz} | ${area.mod}</p>`;
+                div.onclick = () => {
+                    map.fitBounds(L.polygon(area.coords).getBounds());
+                };
+                listDiv.appendChild(div);
+
+                // Megjelenítés a térképen kékkel
+                L.polygon(area.coords, {color: 'blue', fillOpacity: 0.4})
+                 .addTo(map)
+                 .bindPopup(`<b>${area.nev}</b><br>${area.ha} Ha<br>${area.mod}`);
+            });
+        }
+
+        function loadData() {
+            const data = localStorage.getItem('mezo_teruletek');
+            if(data) {
+                savedAreas = JSON.parse(data);
+                renderList();
+            }
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
